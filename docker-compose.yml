@@ -1,0 +1,25 @@
+services:
+  server:
+    build: ./server
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: file:/data/bread-route.db
+      JWT_SECRET: ${JWT_SECRET:-change-this-before-production}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
+      PORT: 4000
+    volumes:
+      - bread_data:/data
+      - bread_uploads:/uploads
+  web:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on: [server]
+    ports:
+      - "8080:80"
+volumes:
+  bread_data:
+  bread_uploads:

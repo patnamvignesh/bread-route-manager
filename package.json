@@ -1,0 +1,23 @@
+{
+  "name": "bread-route-api",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "db:setup": "prisma generate && prisma db push && node prisma/seed.js",
+    "build": "prisma generate",
+    "railway:start": "prisma db push && node prisma/seed.js && node src/index.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.11.1",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.1",
+    "openai": "^5.9.0",
+    "zod": "^3.25.67",
+    "prisma": "^6.11.1"
+  }
+}
