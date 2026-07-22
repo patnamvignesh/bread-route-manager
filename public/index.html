@@ -3,43 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111827" />
   <title>Bread Route Manager</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <header>
-    <div>
-      <p class="eyebrow">Warehouse Operations</p>
-      <h1>Bread Route Manager</h1>
-    </div>
-    <span id="apiStatus" class="status">Connecting…</span>
-  </header>
+  <section id="loginView" class="login-shell">
+    <form id="loginForm" class="card login-card">
+      <p class="eyebrow">Warehouse Operations</p><h1>Bread Route Manager</h1>
+      <p>Sign in with a demo role. Password: <b>Demo123!</b></p>
+      <label>Email<select id="email"><option>manager@bread.local</option><option>packer@bread.local</option><option>picker@bread.local</option><option>driver@bread.local</option></select></label>
+      <label>Password<input id="password" type="password" value="Demo123!" required /></label>
+      <button type="submit">Sign in</button><p id="loginError" class="error"></p>
+    </form>
+  </section>
 
-  <main>
-    <section class="toolbar card">
-      <label>Route<select id="routeSelect"></select></label>
-      <label>Search<input id="search" placeholder="Bread or customer" /></label>
-      <button id="shortageButton">View shortages</button>
-    </section>
-
-    <section id="summary" class="summary"></section>
-    <section id="board" class="board"></section>
-  </main>
-
-  <dialog id="shortageDialog">
-    <div class="dialog-header"><h2>Shortage report</h2><button id="closeDialog">×</button></div>
-    <div id="shortageList"></div>
-  </dialog>
-
-  <template id="productTemplate">
-    <article class="product card">
-      <div class="product-header">
-        <div><p class="eyebrow">Product</p><h2></h2></div>
-        <div class="totals"></div>
-      </div>
-      <div class="customers"></div>
-    </article>
-  </template>
+  <div id="appView" hidden>
+    <header><div><p class="eyebrow">Live Operations</p><h1>Bread Route Manager</h1></div><div><span id="identity"></span> <button id="logout" class="secondary">Log out</button></div></header>
+    <main>
+      <section class="toolbar card">
+        <label>Route<select id="routeSelect"></select></label>
+        <label>Workspace<select id="workspace"><option value="packing">Packing</option><option value="picking">Picking</option><option value="driver">Driver</option><option value="reports">Reports</option><option value="upload">Invoice Upload</option></select></label>
+        <label>Search<input id="search" placeholder="Bread or customer" /></label>
+        <span id="apiStatus" class="status">Connecting…</span>
+      </section>
+      <section id="summary" class="summary"></section>
+      <section id="board" class="board"></section>
+    </main>
+  </div>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
