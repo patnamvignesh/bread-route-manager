@@ -1,102 +1,119 @@
-const routeSelect = document.querySelector('#routeSelect');
-const board = document.querySelector('#board');
-const summary = document.querySelector('#summary');
-const search = document.querySelector('#search');
-const apiStatus = document.querySelector('#apiStatus');
-const shortageDialog = document.querySelector('#shortageDialog');
-let currentBoard = null;
+const $ = selector => document.querySelector(selector);
+const board = $('#board');
+const summary = $('#summary');
+const routeSelect = $('#routeSelect');
+const workspace = $('#workspace');
+const search = $('#search');
+let token = localStorage.getItem('breadToken');
+let user = JSON.parse(localStorage.getItem('breadUser') || 'null');
+let routes = [];
 
-async function api(path, options) {
-  const response = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
-  const data = await response.json();
+async function api(path, options = {}) {
+  const headers = { ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers };
+  const response = await fetch(path, { ...options, headers });
+  const type = response.headers.get('content-type') || '';
+  const data = type.includes('json') ? await response.json() : await response.text();
   if (!response.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
 
+function showApp() {
+  $('#loginView').hidden = true; $('#appView').hidden = false;
+  $('#identity').textContent = `${user.name} · ${user.role}`;
+  const allowed = user.role === 'MANAGER' ? ['packing','picking','driver','reports','upload'] : user.role === 'PACKER' ? ['packing'] : user.role === 'PICKER' ? ['picking'] : ['driver'];
+  [...workspace.options].forEach(option => option.hidden = !allowed.includes(option.value));
+  workspace.value = allowed[0];
+  loadRoutes();
+}
+
+$('#loginForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    const result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: $('#email').value, password: $('#password').value }) });
+    token = result.token; user = result.user;
+    localStorage.setItem('breadToken', token); localStorage.setItem('breadUser', JSON.stringify(user));
+    showApp();
+  } catch (error) { $('#loginError').textContent = error.message; }
+});
+
+$('#logout').onclick = () => { localStorage.clear(); location.reload(); };
+
 async function loadRoutes() {
   try {
-    await api('/api/health');
-    apiStatus.textContent = 'Online';
-    apiStatus.classList.add('online');
-    const routes = await api('/api/routes');
+    routes = await api('/api/routes');
     routeSelect.innerHTML = routes.map(route => `<option value="${route.id}">Route ${route.routeCode}</option>`).join('');
-    if (routes.length) await loadBoard(routes[0].id);
-  } catch (error) {
-    apiStatus.textContent = 'Offline';
-    board.innerHTML = `<p class="error">${error.message}</p>`;
-  }
+    $('#apiStatus').textContent = 'Online'; $('#apiStatus').classList.add('online');
+    renderWorkspace();
+  } catch (error) { if (error.message.includes('Authentication')) return $('#logout').click(); board.innerHTML = `<p class="error">${error.message}</p>`; }
 }
 
-async function loadBoard(routeId) {
-  currentBoard = await api(`/api/routes/${routeId}/packing-board`);
-  render();
+function metrics(items) { summary.innerHTML = items.map(([label,value]) => `<div class="metric card"><span>${label}</span><strong>${value}</strong></div>`).join(''); }
+
+async function renderPacking() {
+  const data = await api(`/api/routes/${routeSelect.value}/packing-board`);
+  const term = search.value.toLowerCase();
+  const products = data.products.filter(p => p.productName.toLowerCase().includes(term) || p.customers.some(c => c.customerName.toLowerCase().includes(term)));
+  const totals = data.products.reduce((a,p) => ({ required:a.required+p.required, packed:a.packed+p.packed, short:a.short+p.short }), { required:0,packed:0,short:0 });
+  metrics([['Required',totals.required],['Packed',totals.packed],['Short',totals.short],['Progress',`${totals.required ? Math.round((totals.packed+totals.short)/totals.required*100) : 0}%`]]);
+  board.innerHTML = products.map(product => `<article class="product card"><div class="product-header"><div><p class="eyebrow">Product</p><h2>${product.productName}</h2></div><b>${product.packed}/${product.required} packed · ${product.short} short</b></div><div class="customers">${product.customers.map(c => `<div class="customer-row ${c.status.toLowerCase()}"><div><strong>${c.customerName}</strong><span>Needs ${c.quantity}</span></div><div class="actions"><button data-pack="done" data-id="${c.itemId}" data-qty="${c.quantity}">Done</button><button class="secondary" data-pack="short" data-id="${c.itemId}" data-qty="${c.quantity}">Short</button></div></div>`).join('')}</div></article>`).join('');
 }
 
-function render() {
-  if (!currentBoard) return;
-  const term = search.value.trim().toLowerCase();
-  const products = currentBoard.products.filter(product =>
-    product.productName.toLowerCase().includes(term) ||
-    product.customers.some(customer => customer.customerName.toLowerCase().includes(term))
-  );
+async function renderPicking() {
+  const route = await api(`/api/routes/${routeSelect.value}/picking-board`);
+  const done = route.customers.filter(c => c.pickStatus === 'DONE').length;
+  metrics([['Stops',route.customers.length],['Picked',done],['Remaining',route.customers.length-done]]);
+  board.innerHTML = route.customers.map(c => `<article class="card"><p class="eyebrow">Stop ${c.stopOrder}</p><h2>${c.name}</h2><p>${c.address || ''}</p><p>${c.items.map(i => `${i.product.name}: ${i.quantity}`).join(' · ')}</p><button data-pick="${c.id}" ${c.pickStatus==='DONE'?'disabled':''}>${c.pickStatus==='DONE'?'Picked':'Mark picked'}</button></article>`).join('');
+}
 
-  const totals = currentBoard.products.reduce((acc, p) => ({
-    required: acc.required + p.required,
-    packed: acc.packed + p.packed,
-    short: acc.short + p.short
-  }), { required: 0, packed: 0, short: 0 });
+async function renderDriver() {
+  const route = await api(`/api/routes/${routeSelect.value}/driver-board`);
+  const delivered = route.customers.filter(c => c.deliveryStatus === 'DELIVERED').length;
+  metrics([['Stops',route.customers.length],['Delivered',delivered],['Remaining',route.customers.length-delivered]]);
+  board.innerHTML = route.customers.map(c => `<article class="card"><p class="eyebrow">Stop ${c.stopOrder} · ${c.deliveryStatus}</p><h2>${c.name}</h2><p>${c.address || ''}</p><p>${c.instructions || ''}</p><div class="actions"><a class="button" target="_blank" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address||c.name)}">Navigate</a><button data-delivery="ARRIVED" data-id="${c.id}">Arrived</button><button data-delivery="DELIVERED" data-id="${c.id}">Delivered</button><button class="secondary" data-delivery="ISSUE" data-id="${c.id}">Issue</button></div><label>Proof photo<input data-proof="${c.id}" type="file" accept="image/*" capture="environment"></label>${c.proofPhotoPath?`<a href="${c.proofPhotoPath}" target="_blank">View proof</a>`:''}</article>`).join('');
+}
 
-  summary.innerHTML = [
-    ['Required', totals.required], ['Packed', totals.packed], ['Short', totals.short],
-    ['Progress', `${totals.required ? Math.round(((totals.packed + totals.short) / totals.required) * 100) : 0}%`]
-  ].map(([label, value]) => `<div class="metric card"><span>${label}</span><strong>${value}</strong></div>`).join('');
+async function renderReports() {
+  const [dashboard, shortages] = await Promise.all([api('/api/reports/dashboard'), api('/api/reports/shortages')]);
+  metrics([['Routes',dashboard.routes],['Customers',dashboard.customers],['Delivered',dashboard.delivered],['Completion',`${dashboard.deliveryCompletion}%`],['Shortages',dashboard.shortages]]);
+  board.innerHTML = `<article class="card"><div class="product-header"><h2>Shortage report</h2><a class="button" href="/api/reports/export.csv" data-export>Export CSV</a></div>${shortages.length ? shortages.map(s=>`<div class="shortage"><strong>${s.product}</strong><span>Route ${s.route} · ${s.customer}</span><b>${s.short} short</b></div>`).join(''):'<p>No shortages recorded.</p>'}</article>`;
+  $('[data-export]').onclick = async e => { e.preventDefault(); const csv = await api('/api/reports/export.csv'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='bread-route-report.csv'; a.click(); };
+}
 
-  board.innerHTML = '';
-  for (const product of products) {
-    const node = document.querySelector('#productTemplate').content.cloneNode(true);
-    node.querySelector('h2').textContent = product.productName;
-    node.querySelector('.totals').textContent = `${product.packed}/${product.required} packed · ${product.short} short`;
-    const customers = node.querySelector('.customers');
-    customers.innerHTML = product.customers.map(customer => `
-      <div class="customer-row ${customer.status.toLowerCase()}">
-        <div><strong>${customer.customerName}</strong><span>Needs ${customer.quantity}</span></div>
-        <div class="actions">
-          <button data-action="done" data-id="${customer.itemId}" data-qty="${customer.quantity}">Done</button>
-          <button class="secondary" data-action="short" data-id="${customer.itemId}" data-qty="${customer.quantity}">Short</button>
-        </div>
-      </div>`).join('');
-    board.appendChild(node);
-  }
+function renderUpload() {
+  summary.innerHTML = '';
+  board.innerHTML = `<form id="uploadForm" class="card"><p class="eyebrow">Manager tool</p><h2>Upload daily invoice or loading sheet</h2><p>PDF and image files up to 12 MB are stored for extraction review.</p><input id="document" type="file" accept="application/pdf,image/*" required><button>Upload document</button><pre id="uploadResult"></pre></form>`;
+  $('#uploadForm').onsubmit = async e => { e.preventDefault(); const form = new FormData(); form.append('document',$('#document').files[0]); try { $('#uploadResult').textContent=JSON.stringify(await api('/api/documents/upload',{method:'POST',body:form}),null,2); } catch(error) { $('#uploadResult').textContent=error.message; } };
+}
+
+async function renderWorkspace() {
+  if (!routeSelect.value && workspace.value !== 'upload') return;
+  board.innerHTML = '<p>Loading…</p>';
+  try {
+    if (workspace.value === 'packing') await renderPacking();
+    if (workspace.value === 'picking') await renderPicking();
+    if (workspace.value === 'driver') await renderDriver();
+    if (workspace.value === 'reports') await renderReports();
+    if (workspace.value === 'upload') renderUpload();
+  } catch (error) { board.innerHTML = `<p class="error">${error.message}</p>`; }
 }
 
 board.addEventListener('click', async event => {
-  const button = event.target.closest('button[data-action]');
-  if (!button) return;
-  const id = button.dataset.id;
-  const quantity = Number(button.dataset.qty);
+  const pack = event.target.closest('[data-pack]');
+  const pick = event.target.closest('[data-pick]');
+  const delivery = event.target.closest('[data-delivery]');
   try {
-    if (button.dataset.action === 'done') {
-      await api(`/api/order-items/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'DONE', packedQty: quantity, shortQty: 0 }) });
-    } else {
-      const shortQty = Number(prompt(`How many are short? Maximum ${quantity}`, '1'));
-      if (!Number.isInteger(shortQty) || shortQty < 0 || shortQty > quantity) return;
-      const notes = prompt('Optional shortage note', '') || null;
-      await api(`/api/order-items/${id}`, { method: 'PATCH', body: JSON.stringify({ status: shortQty ? 'SHORT' : 'DONE', packedQty: quantity - shortQty, shortQty, notes }) });
-    }
-    await loadBoard(routeSelect.value);
-  } catch (error) {
-    alert(error.message);
-  }
+    if (pack) { const quantity=Number(pack.dataset.qty); let shortQty=0; if(pack.dataset.pack==='short') shortQty=Number(prompt(`How many short? Maximum ${quantity}`,'1')); if(!Number.isInteger(shortQty)||shortQty<0||shortQty>quantity)return; await api(`/api/order-items/${pack.dataset.id}`,{method:'PATCH',body:JSON.stringify({status:shortQty?'SHORT':'DONE',packedQty:quantity-shortQty,shortQty,notes:shortQty?prompt('Shortage note',''):null})}); }
+    if (pick) await api(`/api/customers/${pick.dataset.pick}/pick-status`,{method:'PATCH',body:JSON.stringify({status:'DONE'})});
+    if (delivery) await api(`/api/customers/${delivery.dataset.id}/delivery-status`,{method:'PATCH',body:JSON.stringify({status:delivery.dataset.delivery,notes:delivery.dataset.delivery==='ISSUE'?prompt('Describe issue',''):null})});
+    await renderWorkspace();
+  } catch(error) { alert(error.message); }
 });
 
-routeSelect.addEventListener('change', () => loadBoard(routeSelect.value));
-search.addEventListener('input', render);
-document.querySelector('#shortageButton').addEventListener('click', async () => {
-  const shortages = await api('/api/reports/shortages');
-  document.querySelector('#shortageList').innerHTML = shortages.length ? shortages.map(item => `
-    <div class="shortage"><strong>${item.product}</strong><span>Route ${item.route} · ${item.customer}</span><b>${item.short} short</b></div>`).join('') : '<p>No shortages recorded.</p>';
-  shortageDialog.showModal();
+board.addEventListener('change', async event => {
+  const input = event.target.closest('[data-proof]'); if(!input?.files[0]) return;
+  const form = new FormData(); form.append('photo',input.files[0]);
+  try { await api(`/api/customers/${input.dataset.proof}/proof`,{method:'POST',body:form}); await renderWorkspace(); } catch(error) { alert(error.message); }
 });
-document.querySelector('#closeDialog').addEventListener('click', () => shortageDialog.close());
 
-loadRoutes();
+routeSelect.onchange = renderWorkspace; workspace.onchange = renderWorkspace; search.oninput = () => workspace.value==='packing'&&renderPacking();
+if (token && user) showApp();
