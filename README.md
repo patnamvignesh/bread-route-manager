@@ -1,71 +1,90 @@
-# Bread Route Manager — Phase 4 Complete Product
+# Bread Route Manager
 
-A runnable manager-and-driver delivery operations application for daily bread routes.
+A full-stack warehouse and delivery operations platform built around a real bread-distribution workflow.
 
-## Product modules
+## Completed modules
 
-### Phase 1 — Foundation
-- Manager and driver authentication
-- Daily invoice PDF/image upload
-- OpenAI structured invoice extraction with demo fallback
-- Extraction review and customer/address approval
-- SQLite/Prisma database
+- JWT authentication with Manager, Packer, Picker and Driver roles
+- Manager route creation and staff assignment API
+- Bread-wise packing board with customer quantities
+- Done and shortage tracking with notes
+- Customer-wise picker workflow
+- Mobile-friendly driver stop list
+- Google Maps navigation links
+- Arrived, delivered and issue statuses
+- Proof-of-delivery photo uploads
+- Invoice/loading-sheet upload and extraction-review workflow
+- Manager approval endpoint for extracted route data
+- Dashboard KPIs and shortage reporting
+- Authenticated CSV export
+- SQLite and Prisma persistence
+- Seeded realistic Route 0202 demo
+- Docker deployment
+- Native Node API tests
+- GitHub Actions CI
 
-### Phase 2 — Visual dispatch
-- Map-style dispatch board
-- Drag-and-drop stop assignment
-- 5–6 hour workload balancing
-- Driver targets, box capacity, invoice value and service-time estimates
-- Route ordering and optimization
+## Demo accounts
 
-### Phase 3 — Driver execution
-- Installable mobile PWA
-- Live GPS pings and manager tracking
-- Turn-by-turn Google Maps launch
-- Arrived, en-route, delivered and issue workflows
-- Proof-of-delivery camera uploads
-- Offline status queue
+All demo accounts use password `Demo123!`.
 
-### Phase 4 — Reporting and deployment
-- Daily KPI dashboard
-- Per-driver scorecards
-- Short delivery, issue and missing-proof alerts
-- Stop-by-stop delivery audit
-- 30-day activity chart
-- Authenticated CSV report export
-- Docker production deployment
+| Role | Email |
+|---|---|
+| Manager | manager@bread.local |
+| Packer | packer@bread.local |
+| Picker | picker@bread.local |
+| Driver | driver@bread.local |
 
-## Local development
+## Run locally
 
 Requires Node.js 20+.
 
 ```bash
-cp server/.env.example server/.env
-npm run setup
+git clone https://github.com/patnamvignesh/bread-route-manager.git
+cd bread-route-manager
+cp .env.example .env
+npm install
+npm run db:setup
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open `http://localhost:3000`.
 
-Manager: `manager@bread.local` / `Manager123!`
-
-Driver: `driver@bread.local` / `Driver123!`
-
-## Docker deployment
+## Run tests
 
 ```bash
-cp .env.production.example .env
-# Add a strong JWT_SECRET and optional OPENAI_API_KEY
-docker compose up --build -d
+npm test
 ```
 
-Open `http://localhost:8080`.
+## Run with Docker
 
-## Production notes
+```bash
+docker build -t bread-route-manager .
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL="file:./production.db" \
+  -e JWT_SECRET="replace-with-a-long-random-secret" \
+  bread-route-manager
+```
 
-- Change all demo passwords before real use.
-- Use HTTPS for phone GPS and camera permissions.
-- Replace SQLite with PostgreSQL for multi-warehouse/high-concurrency deployments.
-- Configure durable object storage such as S3/R2 for proof photos.
-- Connect Google Maps Platform or Mapbox for road-accurate geocoding and routing.
-- Restrict `CLIENT_ORIGIN` to the production domain.
+## Main API areas
+
+- `/api/auth/*` — login and current user
+- `/api/routes/*` — route operations and assignments
+- `/api/order-items/*` — packing updates
+- `/api/customers/*` — picking, delivery and proof photos
+- `/api/documents/*` — uploaded invoice review and approval
+- `/api/reports/*` — dashboard, shortages and CSV export
+
+## Production hardening
+
+Before using this for a real warehouse:
+
+- Replace all demo credentials and the JWT secret.
+- Use HTTPS for camera and location permissions.
+- Replace SQLite with PostgreSQL for multi-user production use.
+- Store proof photos in S3, Cloudflare R2 or equivalent object storage.
+- Connect a dedicated OCR/document extraction provider and require manager review.
+- Add automated backups, audit logging and warehouse-level tenant isolation.
+
+## Portfolio value
+
+This project demonstrates full-stack API design, relational data modeling, authentication, role-based authorization, file uploads, operational workflow design, reporting, testing, CI and container deployment.
