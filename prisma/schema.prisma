@@ -41,6 +41,7 @@ model User {
 model Route {
   id          Int          @id @default(autoincrement())
   routeCode   String       @unique
+  routeName   String?
   routeDate   DateTime
   status      String       @default("OPEN")
   customers   Customer[]
@@ -50,21 +51,23 @@ model Route {
 }
 
 model Customer {
-  id              Int          @id @default(autoincrement())
-  name            String
-  address         String?
-  phone           String?
-  instructions    String?
-  stopOrder       Int          @default(0)
-  pickStatus      ItemStatus   @default(PENDING)
-  deliveryStatus  StopStatus   @default(PENDING)
-  arrivedAt       DateTime?
-  deliveredAt     DateTime?
-  deliveryNotes   String?
-  proofPhotoPath  String?
-  routeId         Int
-  route           Route        @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  items           OrderItem[]
+  id               Int          @id @default(autoincrement())
+  externalTicketId String?      @unique
+  name             String
+  address          String?
+  contactName      String?
+  phone            String?
+  instructions     String?
+  stopOrder        Int          @default(0)
+  pickStatus       ItemStatus   @default(PENDING)
+  deliveryStatus   StopStatus   @default(PENDING)
+  arrivedAt        DateTime?
+  deliveredAt      DateTime?
+  deliveryNotes    String?
+  proofPhotoPath   String?
+  routeId          Int
+  route            Route        @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  items            OrderItem[]
 }
 
 model Product {
@@ -72,14 +75,16 @@ model Product {
   name      String      @unique
   sku       String?     @unique
   category  String      @default("BREAD")
+  vendor    String?
   items     OrderItem[]
 }
 
 model OrderItem {
   id          Int        @id @default(autoincrement())
-  quantity    Int
-  packedQty   Int        @default(0)
-  shortQty    Int        @default(0)
+  quantity    Float
+  uom         String     @default("EA")
+  packedQty   Float      @default(0)
+  shortQty    Float      @default(0)
   status      ItemStatus @default(PENDING)
   notes       String?
   customerId  Int
