@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bread Route Manager</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">Warehouse Operations</p>
+      <h1>Bread Route Manager</h1>
+    </div>
+    <span id="apiStatus" class="status">Connecting…</span>
+  </header>
+
+  <main>
+    <section class="toolbar card">
+      <label>Route<select id="routeSelect"></select></label>
+      <label>Search<input id="search" placeholder="Bread or customer" /></label>
+      <button id="shortageButton">View shortages</button>
+    </section>
+
+    <section id="summary" class="summary"></section>
+    <section id="board" class="board"></section>
+  </main>
+
+  <dialog id="shortageDialog">
+    <div class="dialog-header"><h2>Shortage report</h2><button id="closeDialog">×</button></div>
+    <div id="shortageList"></div>
+  </dialog>
+
+  <template id="productTemplate">
+    <article class="product card">
+      <div class="product-header">
+        <div><p class="eyebrow">Product</p><h2></h2></div>
+        <div class="totals"></div>
+      </div>
+      <div class="customers"></div>
+    </article>
+  </template>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
