@@ -9,6 +9,7 @@ RUN npm config set registry https://registry.npmjs.org/ \
 
 COPY . .
 
+# Deployment trigger: force Railway to build the latest Dockerfile revision.
 RUN npx --yes prisma@6.11.1 generate --schema=prisma/schema.prisma
 
 ENV NODE_ENV=production
