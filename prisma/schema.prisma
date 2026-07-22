@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MANAGER
+  PACKER
+  PICKER
+  DRIVER
+}
+
+enum ItemStatus {
+  PENDING
+  DONE
+  SHORT
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+}
+
+model Route {
+  id         Int         @id @default(autoincrement())
+  routeCode  String      @unique
+  routeDate  DateTime
+  status     String      @default("OPEN")
+  customers  Customer[]
+  assignments Assignment[]
+  createdAt  DateTime    @default(now())
+}
+
+model Customer {
+  id        Int         @id @default(autoincrement())
+  name      String
+  address   String?
+  stopOrder Int         @default(0)
+  routeId   Int
+  route     Route       @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  items     OrderItem[]
+}
+
+model Product {
+  id        Int         @id @default(autoincrement())
+  name      String      @unique
+  sku       String?     @unique
+  category  String      @default("BREAD")
+  items     OrderItem[]
+}
+
+model OrderItem {
+  id          Int        @id @default(autoincrement())
+  quantity    Int
+  packedQty   Int        @default(0)
+  shortQty    Int        @default(0)
+  status      ItemStatus @default(PENDING)
+  notes       String?
+  customerId  Int
+  productId   Int
+  customer    Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product     Product    @relation(fields: [productId], references: [id])
+  updatedAt   DateTime   @updatedAt
+}
+
+model Assignment {
+  id        Int      @id @default(autoincrement())
+  routeId   Int
+  userId    Int
+  workType  Role
+  route     Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([routeId, workType])
+}
