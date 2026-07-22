@@ -1,11 +1,14 @@
 {
-  "name": "bread-route-api",
+  "name": "bread-route-manager",
+  "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "db:setup": "prisma generate && prisma db push && node prisma/seed.js",
     "build": "prisma generate",
+    "test": "NODE_ENV=test node --test",
     "railway:start": "prisma db push && node prisma/seed.js && node src/index.js"
   },
   "dependencies": {
