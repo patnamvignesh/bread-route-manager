@@ -20,33 +20,51 @@ enum ItemStatus {
   SHORT
 }
 
+enum StopStatus {
+  PENDING
+  EN_ROUTE
+  ARRIVED
+  DELIVERED
+  ISSUE
+}
+
 model User {
-  id           Int      @id @default(autoincrement())
+  id           Int          @id @default(autoincrement())
   name         String
-  email        String   @unique
+  email        String       @unique
   passwordHash String
   role         Role
-  createdAt    DateTime @default(now())
+  assignments  Assignment[]
+  createdAt    DateTime     @default(now())
 }
 
 model Route {
-  id         Int         @id @default(autoincrement())
-  routeCode  String      @unique
-  routeDate  DateTime
-  status     String      @default("OPEN")
-  customers  Customer[]
+  id          Int          @id @default(autoincrement())
+  routeCode   String       @unique
+  routeDate   DateTime
+  status      String       @default("OPEN")
+  customers   Customer[]
   assignments Assignment[]
-  createdAt  DateTime    @default(now())
+  documents   Document[]
+  createdAt   DateTime     @default(now())
 }
 
 model Customer {
-  id        Int         @id @default(autoincrement())
-  name      String
-  address   String?
-  stopOrder Int         @default(0)
-  routeId   Int
-  route     Route       @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  items     OrderItem[]
+  id              Int          @id @default(autoincrement())
+  name            String
+  address         String?
+  phone           String?
+  instructions    String?
+  stopOrder       Int          @default(0)
+  pickStatus      ItemStatus   @default(PENDING)
+  deliveryStatus  StopStatus   @default(PENDING)
+  arrivedAt       DateTime?
+  deliveredAt     DateTime?
+  deliveryNotes   String?
+  proofPhotoPath  String?
+  routeId         Int
+  route           Route        @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  items           OrderItem[]
 }
 
 model Product {
@@ -77,7 +95,20 @@ model Assignment {
   userId    Int
   workType  Role
   route     Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@unique([routeId, workType])
+}
+
+model Document {
+  id            Int      @id @default(autoincrement())
+  routeId       Int?
+  originalName  String
+  storedPath    String
+  mimeType      String
+  extractionRaw String?
+  status        String   @default("UPLOADED")
+  route         Route?   @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
 }
